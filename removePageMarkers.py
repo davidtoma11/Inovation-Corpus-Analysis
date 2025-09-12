@@ -55,5 +55,5 @@ def remove_page_headers_from_folder(folder_path):
 
 
 # Example usage
-folder_path = "articles"  # Path to folder with text files
+folder_path = "../articles"  # Path to folder with text files
 remove_page_headers_from_folder(folder_path)

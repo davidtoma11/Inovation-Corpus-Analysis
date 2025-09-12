@@ -4,25 +4,26 @@ import re
 
 def translate_english_stems_in_files(folder_path):
     """
-    Traduce rădăcinile englezești din fișierele preprocesate
+    Translate English stems into their Spanish equivalents
+    inside the preprocessed text files
     """
     folder = Path(folder_path)
     text_files = list(folder.glob("*.txt"))
 
-    # Dicționar pentru rădăcini englezești -> spaniole
+    # Dictionary for English stem -> Spanish stem
     stem_translation_dict = {
-        # Rădăcini de inovație
-        'innov': 'innov',  # Rămâne la fel (innovacion → innov)
+        # Innovation-related stems
+        'innov': 'innov',        # stays the same (innovacion → innov)
 
-        # Alte rădăcini comune
+        # Other common stems
         'technolog': 'tecnolog',
         'develop': 'desarroll',
         'research': 'investig',
         'product': 'product',
         'strateg': 'estrateg',
         'digit': 'digit',
-        'busy': 'negoc',  # business → negocio
-        'compan': 'empres',  # company → empresa
+        'busy': 'negoc',         # business → negocio
+        'compan': 'empres',      # company → empresa
         'market': 'merc',
         'manag': 'gestion',
         'invest': 'invers',
@@ -33,50 +34,53 @@ def translate_english_stems_in_files(folder_path):
         'business': 'negocio'
     }
 
-    updated_count = 0
-    total_replacements = 0
+    updated_count = 0          # number of files updated
+    total_replacements = 0     # total number of stem replacements
 
-    print("Actualizez rădăcini englezești în fișierele preprocesate...")
+    print("Updating English stems inside preprocessed files...")
     print("-" * 60)
 
     for text_file in text_files:
         try:
+            # Read file content
             with open(text_file, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
 
             original_content = content
 
-            # Înlocuiește rădăcinile englezești
+            # Replace English stems with Spanish equivalents
             for eng_stem, esp_stem in stem_translation_dict.items():
-                # Înlocuiește doar dacă rădăcina există
                 if eng_stem in content:
-                    # Folosește regex pentru a înlocui doar cuvintele întregi care încep cu rădăcina
+                    # Regex replacement: only full words starting with the stem
                     content = re.sub(r'\b' + eng_stem + r'\w*\b', esp_stem, content)
 
-            # Verifică dacă s-au făcut modificări
+            # Check if changes were made
             if content != original_content:
                 with open(text_file, 'w', encoding='utf-8') as f:
                     f.write(content)
 
-                # Numără câte înlocuiri s-au făcut
+                # Count how many stems were replaced
                 changes = sum(1 for eng_stem in stem_translation_dict
                               if eng_stem in original_content and eng_stem not in content)
 
                 total_replacements += changes
                 updated_count += 1
-                print(f"✓ {text_file.name} - {changes} înlocuiri")
+                print(f"✓ {text_file.name} - {changes} replacements")
             else:
-                print(f"○ {text_file.name} - nicio modificare necesară")
+                print(f"○ {text_file.name} - no changes needed")
 
         except Exception as e:
-            print(f"✗ Eroare la {text_file.name}: {str(e)}")
+            # If something goes wrong, print the error but continue processing
+            print(f"✗ Error in {text_file.name}: {str(e)}")
 
-    print(f"\nProcesare completă!")
-    print(f"Fișiere actualizate: {updated_count}/{len(text_files)}")
-    print(f"Total înlocuiri de rădăcini: {total_replacements}")
+    # Final summary
+    print(f"\nProcessing completed!")
+    print(f"Files updated: {updated_count}/{len(text_files)}")
+    print(f"Total stem replacements: {total_replacements}")
 
 
-# Utilizare
+# USAGE
 if __name__ == "__main__":
-    folder_path = "processed_articles"  # Folderul cu fișierele preprocesate
+    # Folder with preprocessed text files
+    folder_path = "../processed_articles"
     translate_english_stems_in_files(folder_path)

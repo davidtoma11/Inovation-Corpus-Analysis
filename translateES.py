@@ -1,86 +1,110 @@
-from pathlib import Path
-import re
+from googletrans import Translator
+from langdetect import detect, DetectorFactory
+import os
+
+# For consistent language detection
+DetectorFactory.seed = 0
 
 
-def translate_english_stems_in_files(folder_path):
+def detect_language(text: str) -> str:
     """
-    Translate English stems into their Spanish equivalents
-    inside the preprocessed text files
+    Detect the language of a text.
+    Returns a language code (e.g., 'en', 'es').
+    Uses only the first 1000 characters for reliability.
     """
-    folder = Path(folder_path)
-    text_files = list(folder.glob("*.txt"))
+    try:
+        sample_text = text[:1000]
+        lang = detect(sample_text)
+        return lang
+    except:
+        return "unknown"
 
-    # Dictionary for English stem -> Spanish stem
-    stem_translation_dict = {
-        # Innovation-related stems
-        'innov': 'innov',        # stays the same (innovacion → innov)
 
-        # Other common stems
-        'technolog': 'tecnolog',
-        'develop': 'desarroll',
-        'research': 'investig',
-        'product': 'product',
-        'strateg': 'estrateg',
-        'digit': 'digit',
-        'busy': 'negoc',         # business → negocio
-        'compan': 'empres',      # company → empresa
-        'market': 'merc',
-        'manag': 'gestion',
-        'invest': 'invers',
-        'lead': 'lider',
-        'growth': 'crecim',
-        'custom': 'client',
-        'servic': 'servic',
-        'business': 'negocio'
-    }
+def translate_text_to_spanish(text: str, max_chunk_size: int = 4500) -> str:
+    """
+    Translate English text into Spanish, splitting it into chunks
+    to avoid API size limits.
+    """
+    translator = Translator()
+    chunks = []
+    start = 0
 
-    updated_count = 0          # number of files updated
-    total_replacements = 0     # total number of stem replacements
+    while start < len(text):
+        end = start + max_chunk_size
+        if end >= len(text):
+            chunks.append(text[start:])
+            break
 
-    print("Updating English stems inside preprocessed files...")
-    print("-" * 60)
+        break_point = text.rfind(' ', start, end)
+        if break_point == -1:
+            break_point = end
+        chunk = text[start:break_point]
+        chunks.append(chunk)
+        start = break_point + 1
 
-    for text_file in text_files:
+    translated_chunks = []
+    for i, chunk in enumerate(chunks):
         try:
-            # Read file content
-            with open(text_file, 'r', encoding='utf-8', errors='ignore') as f:
+            print(f"  Translating chunk {i + 1}/{len(chunks)}... ({len(chunk)} chars)")
+            translation = translator.translate(chunk, src='en', dest='es')
+            translated_chunks.append(translation.text)
+        except Exception as e:
+            print(f"    ERROR at chunk {i + 1}: {e}. Using original text for this part.")
+            translated_chunks.append(chunk)
+
+    translated_text = " ".join(translated_chunks)
+    return translated_text
+
+
+def process_directory(input_dir: str, output_dir: str):
+    """
+    Process all .txt files in a folder, detect the language,
+    and translate English files into Spanish.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    translator = Translator()
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".txt"):
+            input_filepath = os.path.join(input_dir, filename)
+            output_filepath = os.path.join(output_dir, filename)
+
+            print(f"\nProcessing: {filename}")
+
+            with open(input_filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
 
-            original_content = content
+            if not content.strip():
+                print(f"  SKIP: File {filename} is empty.")
+                continue
 
-            # Replace English stems with Spanish equivalents
-            for eng_stem, esp_stem in stem_translation_dict.items():
-                if eng_stem in content:
-                    # Regex replacement: only full words starting with the stem
-                    content = re.sub(r'\b' + eng_stem + r'\w*\b', esp_stem, content)
+            lang = detect_language(content)
+            print(f"  Detected: {lang}")
 
-            # Check if changes were made
-            if content != original_content:
-                with open(text_file, 'w', encoding='utf-8') as f:
+            if lang == 'en':
+                print(f"  Translating EN -> ES...")
+                translated_content = translate_text_to_spanish(content)
+                with open(output_filepath, 'w', encoding='utf-8') as f:
+                    f.write(translated_content)
+                print(f"  Saved: {output_filepath} (TRANSLATED)")
+
+            elif lang == 'es':
+                print(f"  OK (Spanish). Copying file.")
+                with open(output_filepath, 'w', encoding='utf-8') as f:
                     f.write(content)
 
-                # Count how many stems were replaced
-                changes = sum(1 for eng_stem in stem_translation_dict
-                              if eng_stem in original_content and eng_stem not in content)
-
-                total_replacements += changes
-                updated_count += 1
-                print(f"✓ {text_file.name} - {changes} replacements")
             else:
-                print(f"○ {text_file.name} - no changes needed")
-
-        except Exception as e:
-            # If something goes wrong, print the error but continue processing
-            print(f"✗ Error in {text_file.name}: {str(e)}")
-
-    # Final summary
-    print(f"\nProcessing completed!")
-    print(f"Files updated: {updated_count}/{len(text_files)}")
-    print(f"Total stem replacements: {total_replacements}")
+                print(f"  WARNING: Unknown language ('{lang}') or detection failed.")
+                print(f"  Copying original file without changes.")
+                with open(output_filepath, 'w', encoding='utf-8') as f:
+                    f.write(content)
 
 
-# USAGE
+# === CONFIGURATION ===
+input_directory = "../articles"
+output_directory = "../translated_articles"
+
+# === RUN ===
 if __name__ == "__main__":
-    # Folder with preprocessed text files
-    folder_path = "../processed_articles"
-    translate_english_stems_in_files(folder_path)
+    process_directory(input_directory, output_directory)
+    print("\nProcess finished! Check the output folder.")

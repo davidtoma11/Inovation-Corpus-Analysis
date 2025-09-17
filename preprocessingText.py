@@ -1,249 +1,148 @@
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer, SnowballStemmer
+import spacy
 import re
-from pathlib import Path
-from collections import Counter
+import os
+from spacy.lang.es.stop_words import STOP_WORDS as ES_STOP_WORDS
 
-# Download all necessary NLTK resources
-try:
-    nltk.download('punkt')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
-    nltk.download('punkt_tab')  # Extra resource sometimes required
-    print("All NLTK resources are installed correctly.")
-except:
-    print("Error downloading NLTK resources. Please check your internet connection.")
+# === CONFIGURATION ===
+INPUT_DIR = "translated_articles"
+OUTPUT_DIR = "preprocessed_articles"
+
+# Custom stopwords and ignored terms
+custom_stopwords = {
+    "información", "dato", "documento", "pdf", "página", "año", "años", "empresa", "empresas",
+    "través", "vez", "ser", "según", "respecto", "número", "ciento", "podría", "ley", "artículo",
+    "punto", "parte", "tal", "decreto", "fin", "tipo", "nombre", "etc", "etcétera", "cómo", "cual",
+    "cuales", "donde", "mismo", "tan", "así", "si", "sí", "sino", "sólo", "solamente", "hacer", "tener",
+    "debe", "debería", "deberá", "poder", "puede", "pueden", "gran", "mayor", "menor", "nuevo", "nueva",
+    "buen", "buena", "importante", "diferente", "respectivo", "principal", "general", "específico",
+    "actual", "cierto", "varios", "varias", "otros", "otras", "cada", "todo", "toda", "todos", "todas",
+    "solo", "sola", "solos", "solas", "sino", "ambos", "ambas", "ninguno", "ninguna", "alguno", "alguna",
+    "algo", "sido", "estado", "ser", "estar", "haber", "hacer", "tener", "decir", "ver", "ir", "dar",
+    "saber", "querer", "llegar", "pasar", "deber", "poner", "parecer", "quedar", "creer", "hablar",
+    "llevar", "dejar", "seguir", "encontrar", "llamar", "venir", "pensar", "salir", "volver", "tomar",
+    "conseguir", "tratar", "mirar", "empezar", "esperar", "buscar", "existir", "entrar", "trabajar",
+    "escribir", "permitir", "aparecer", "conocer", "realizar", "comenzar", "considerar", "perder",
+    "producir", "presentar", "mantener", "significar", "cambiar", "señalar", "suponer", "lograr",
+    "incluir", "explicar", "entender", "desarrollar", "recordar", "utilizar", "mostrar", "indicar",
+    "evaluar", "analizar", "definir", "establecer", "identificar", "reconocer", "determinar",
+    "constituir", "generar", "manifestar", "obtener", "ofrecer", "pertenecer", "proporcionar",
+    "representar", "surgir", "utilizar", "valorar", "aportar", "comprender", "configurar", "constatar",
+    "contar", "contribuir", "controlar", "demostrar", "diseñar", "ejecutar", "elegir", "elevar",
+    "emplear", "encargar", "enfocar", "ensayar", "estudiar", "evitar", "exigir", "expresar", "formar",
+    "implicar", "impulsar", "integrar", "intentar", "invertir", "lograr", "mostrar", "motivar", "notar",
+    "objetivar", "observar", "obtener", "organizar", "orientar", "participar", "planificar", "precisar",
+    "preparar", "pretender", "probar", "proceder", "procurar", "promover", "proponer", "proteger",
+    "proveer", "publicar", "recibir", "reclamar", "reconocer", "referir", "reflejar", "registrar",
+    "regular", "relacionar", "remitir", "repetir", "reportar", "requerir", "resolver", "responder",
+    "resultar", "reunir", "revisar", "solicitar", "subir", "sugerir", "superar", "temer", "terminar",
+    "testar", "tocar", "transformar", "transmitir", "usar", "valer", "variar", "visualizar", "vivir"
+}
+ALL_STOPWORDS = ES_STOP_WORDS.union(custom_stopwords)
+
+# Load spaCy model
+print("Loading spaCy model...")
+nlp = spacy.load("es_core_news_sm", disable=['parser', 'ner'])
+print("Model loaded!")
 
 
-class TextPreprocessor:
-    def __init__(self):
-        # Initialize text preprocessor with both English and Spanish settings
+def process_large_text(text, chunk_size=1000000):
+    """
+    Process very large texts by splitting them into smaller chunks.
+    """
+    all_processed_tokens = []
+    for start in range(0, len(text), chunk_size):
+        end = start + chunk_size
+        chunk = text[start:end]
+
+        if end < len(text):
+            last_space = chunk.rfind(' ')
+            if last_space != -1:
+                end = start + last_space
+                chunk = text[start:end]
+
+        processed_chunk = process_text_chunk(chunk)
+        all_processed_tokens.extend(processed_chunk)
+
+    return all_processed_tokens
+
+
+def process_text_chunk(text):
+    """
+    Process a text chunk with aggressive preprocessing.
+    """
+    text = text.lower()
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+
+    if not text:
+        return []
+
+    doc = nlp(text)
+    processed_tokens = []
+
+    for token in doc:
+        if token.pos_ in {'NOUN', 'VERB', 'ADJ', 'ADV'}:
+            if token.lemma_ not in ALL_STOPWORDS:
+                if 2 < len(token.lemma_) < 25:
+                    processed_tokens.append(token.lemma_)
+
+    return processed_tokens
+
+
+def process_all_files(input_dir, output_dir):
+    """
+    Process all .txt files from the input directory
+    and save preprocessed results into the output directory.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    all_files = [f for f in os.listdir(input_dir) if f.endswith('.txt')]
+    total_files = len(all_files)
+
+    print(f"Starting preprocessing of {total_files} files...")
+
+    for i, filename in enumerate(all_files, 1):
+        input_path = os.path.join(input_dir, filename)
+        output_path = os.path.join(output_dir, filename)
+
+        print(f"[{i}/{total_files}] Processing: {filename}")
+
         try:
-            # Load stopwords (words without much meaning)
-            self.stopwords_en = set(stopwords.words('english'))   # English stopwords
-            self.stopwords_es = set(stopwords.words('spanish'))   # Spanish stopwords
-        except:
-            # If NLTK stopwords are missing, keep empty sets to avoid crashes
-            print("Error loading stopwords. Please check NLTK installation.")
-            self.stopwords_en = set()
-            self.stopwords_es = set()
+            with open(input_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+        except Exception as e:
+            print(f"    ERROR reading {filename}: {e}")
+            continue
 
-        # Tools for reducing words to their base form
-        self.lemmatizer_en = WordNetLemmatizer()       # For English (lemmatization)
-        self.stemmer_es = SnowballStemmer('spanish')   # For Spanish (stemming)
-
-        # Custom stopwords (manually added useless words)
-        self.custom_stopwords = {
-            'page', 'section', 'chapter', 'figure', 'table',
-            'http', 'https', 'www', 'com', 'org', 'pdf',
-            'nbsp', 'ie', 'eg', 'etc', 'viz'
-        }
-
-        # Merge built-in stopwords with custom ones
-        self.stopwords_en.update(self.custom_stopwords)
-        self.stopwords_es.update(self.custom_stopwords)
-
-    def detect_language(self, text):
-        # Detect language based on presence of common words
-        if not text.strip():
-            return 'english'  # Default if the text is empty
-
-        # Common words in Spanish
-        spanish_words = {'el', 'la', 'los', 'las', 'de', 'que', 'y', 'en', 'un', 'una', 'es', 'por', 'con'}
-        # Common words in English
-        english_words = {'the', 'and', 'of', 'to', 'in', 'a', 'is', 'that', 'for', 'on', 'with', 'by', 'as'}
-
-        text_lower = text.lower()
-        es_count = sum(1 for word in spanish_words if word in text_lower)
-        en_count = sum(1 for word in english_words if word in text_lower)
-
-        # Choose the language with more matches
-        return 'spanish' if es_count > en_count else 'english'
-
-    def clean_text(self, text):
-        # Clean raw text (remove noise and normalize)
-        if not text:
-            return ""
-
-        # Remove page headers (if still present)
-        text = re.sub(r'--- Page \d+ ---', '', text)
-
-        # Remove numbers
-        text = re.sub(r'\d+', '', text)
-
-        # Remove punctuation and special symbols
-        text = re.sub(r'[^\w\s]', ' ', text)
-
-        # Convert to lowercase
-        text = text.lower()
-
-        # Replace multiple spaces with a single one
-        text = re.sub(r'\s+', ' ', text).strip()
-
-        return text
-
-    def simple_tokenize(self, text):
-        # Simple tokenization without NLTK (fallback method)
-        tokens = re.findall(r'\b[a-zA-Z]+\b', text)
-        return tokens
-
-    def tokenize_and_filter(self, text, language):
-        # Tokenize text and remove stopwords / useless tokens
-        if not text.strip():
-            return []
+        file_size = len(content)
+        print(f"    Size: {file_size} characters")
 
         try:
-            # Try tokenization with NLTK
-            tokens = word_tokenize(text)
-        except:
-            # Fallback to simple regex-based tokenizer
-            tokens = self.simple_tokenize(text)
+            if file_size > 500000:
+                print(f"    Large file - processing in chunks...")
+                preprocessed_tokens = process_large_text(content)
+            else:
+                preprocessed_tokens = process_text_chunk(content)
 
-        filtered_tokens = []
-        for token in tokens:
-            # Keep only words that:
-            # - are longer than 2 characters
-            # - are not stopwords
-            # - contain only letters
-            if (len(token) > 2 and
-                    token not in self.stopwords_en and
-                    token not in self.stopwords_es and
-                    token.isalpha()):
-                filtered_tokens.append(token)
+            print(f"    Extracted tokens: {len(preprocessed_tokens)}")
 
-        return filtered_tokens
+        except Exception as e:
+            print(f"    ERROR preprocessing {filename}: {e}")
+            continue
 
-    def lemmatize_tokens(self, tokens, language):
-        # Reduce words to their base form (depends on language)
-        processed_tokens = []
+        output_content = " ".join(preprocessed_tokens)
 
-        if language == 'english':
-            # For English: lemmatization (more accurate)
-            for token in tokens:
-                lemma = self.lemmatizer_en.lemmatize(token)
-                processed_tokens.append(lemma)
-        else:
-            # For Spanish: stemming (faster, but less precise)
-            for token in tokens:
-                stem = self.stemmer_es.stem(token)
-                processed_tokens.append(stem)
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(output_content)
+        except Exception as e:
+            print(f"    ERROR writing {filename}: {e}")
+            continue
 
-        return processed_tokens
-
-    def preprocess_document(self, text):
-        # Run full preprocessing pipeline on a single document
-        if not text or not text.strip():
-            return [], 'english'
-
-        # Step 1: Detect language
-        language = self.detect_language(text)
-
-        # Step 2: Clean raw text
-        cleaned_text = self.clean_text(text)
-
-        # Step 3: Tokenize and filter
-        tokens = self.tokenize_and_filter(cleaned_text, language)
-
-        # Step 4: Lemmatize or stem tokens
-        processed_tokens = self.lemmatize_tokens(tokens, language)
-
-        return processed_tokens, language
-
-    def preprocess_folder(self, input_folder, output_folder):
-        # Preprocess all text files in a folder
-        input_path = Path(input_folder)
-        output_path = Path(output_folder)
-        output_path.mkdir(exist_ok=True)
-
-        text_files = list(input_path.glob("*.txt"))
-
-        if not text_files:
-            print("No text files found in the folder.")
-            return [], Counter()
-
-        print(f"Processing {len(text_files)} text files...")
-        print("-" * 50)
-
-        all_processed_docs = []
-        language_stats = Counter()
-
-        for i, text_file in enumerate(text_files, 1):
-            try:
-                # Read the raw text file
-                with open(text_file, 'r', encoding='utf-8', errors='ignore') as f:
-                    text = f.read()
-
-                if not text.strip():
-                    # Skip empty files
-                    print(f"[{i}/{len(text_files)}] {text_file.name} - SKIP (empty file)")
-                    continue
-
-                # Run full preprocessing
-                processed_tokens, language = self.preprocess_document(text)
-
-                # Save the processed output
-                output_file = output_path / f"processed_{text_file.name}"
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(' '.join(processed_tokens))
-
-                # Collect statistics
-                language_stats[language] += 1
-                all_processed_docs.append(processed_tokens)
-
-                print(f"[{i}/{len(text_files)}] {text_file.name} "
-                      f"({language}, {len(processed_tokens)} tokens)")
-
-            except Exception as e:
-                print(f"Error processing {text_file.name}: {str(e)}")
-
-        # Print summary
-        print("\n" + "=" * 50)
-        print("PREPROCESSING SUMMARY")
-        print("=" * 50)
-        print(f"Files processed: {len(text_files)}")
-        print(f"Language distribution: {dict(language_stats)}")
-
-        return all_processed_docs, language_stats
+    print("Preprocessing completed!")
 
 
-# MAIN PROGRAM - Run preprocessing on the "articles" folder
+# === RUN ===
 if __name__ == "__main__":
-    # Initialize preprocessor
-    preprocessor = TextPreprocessor()
-
-    # Input (raw articles) and output (cleaned articles) folders
-    input_folder = "articles"
-    output_folder = "processed_articles"
-
-    # Process all text files
-    processed_docs, language_stats = preprocessor.preprocess_folder(input_folder, output_folder)
-
-    # Extra analysis on processed docs
-    if processed_docs:
-        # Check how many docs mention "innovation" terms
-        innovation_terms = {'innova', 'innov', 'innovation', 'innovacion'}
-        innovation_count = 0
-
-        for doc in processed_docs:
-            if any(term in ' '.join(doc) for term in innovation_terms):
-                innovation_count += 1
-
-        print(f"\nDocuments mentioning innovation: {innovation_count}/{len(processed_docs)}")
-
-        # Vocabulary analysis
-        all_tokens = [token for doc in processed_docs for token in doc]
-        vocab = Counter(all_tokens)
-
-        print(f"\nVocabulary analysis:")
-        print(f"Total tokens: {len(all_tokens)}")
-        print(f"Unique tokens: {len(vocab)}")
-        print(f"Top 10 most common words:")
-
-        for word, count in vocab.most_common(10):
-            print(f"  {word}: {count}")
-
-        print(f"\nAll done! Preprocessed files saved in '{output_folder}'")
-    else:
-        print("No files were processed.")
+    process_all_files(INPUT_DIR, OUTPUT_DIR)

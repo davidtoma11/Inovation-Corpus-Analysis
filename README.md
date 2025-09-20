@@ -26,3 +26,7 @@ Before applying the algorithm, the texts went through a cleaning process to ensu
 -	Innovation-related topics: The topics containing the root innova among the top 10 words were selected.
 -	Semantic interpretation: A qualitative analysis was done on the other words in these topics to see how innovation is contextualized (e.g., product innovation, process innovation, organizational innovation).
 -	Visualization: Results will be presented using charts (bar graphs, topic maps, etc.) to make the relationships between topics easier to understand.
+
+
+## Drive link (for documents and illustrations):
+https://drive.google.com/drive/folders/1WvSF0oitDlccMd22maO1BMcIjK-qkToZ?usp=drive_link

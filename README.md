@@ -1,31 +1,63 @@
 # Methodology for Innovation Analysis
 
-### 1. Purpose of the study
-The goal of this study is to see how the concept of "innovation" is understood and used in 50 working documents from different companies. The analysis uses Natural Language Processing (NLP) techniques, with a focus on topic modeling.
+## 1. Purpose of the Study
+The purpose of this study is to analyze how the concept of **“innovation”** is perceived, discussed, and integrated within a set of 50 working documents from various companies.  
 
+Using **Natural Language Processing (NLP)** techniques—particularly *topic modeling*—the study aims to uncover semantic patterns, thematic clusters, and contextual uses of innovation-related terms across multilingual corporate documents.
 
-### 2. Data collection and preparation (Corpus)
-- We have collected a dataset of 50 documents, written in both English and Spanish.
--	The text from each PDF document was extracted and stored in a single data structure (a list of strings).
+## 2. Data Collection and Preparation (Corpus)
+- A dataset of **50 internal company documents** was collected, written in both English and Spanish.  
+- Each document was converted from **PDF to plain text** format using automated text extraction tools.  
+- To ensure traceability and facilitate error detection, each PDF was saved as a separate **.txt file**.  
+- All texts were then aggregated into a **Python list of document strings**, forming the analysis corpus.  
+- Each document was treated as an **independent analytical unit** for subsequent preprocessing and topic modeling.
 
+## 3. Text Preprocessing / Postprocessing
+To ensure linguistic uniformity and data quality, the following steps were applied:
 
-### 3. Text preprocessing
-Before applying the algorithm, the texts went through a cleaning process to ensure better data quality:
-- Tokenization: Each document was split into individual words (tokens).
--	Stop word removal: Very common words with little meaning (like "and", "but", "el") were removed using language-specific stop word lists for English and Spanish.
--	Lemmatization/Stemming: Words were reduced to their base/root form. For example: innovation, innovating, innovate, innovative and innovacion - all reduced to innova.
--	Filtering: Words that were too rare or too frequent were removed, since they don’t help with topic analysis.
+1. **Translation**  
+   - All documents were automatically translated into **Spanish** using reliable machine translation tools.  
+   - This step ensured consistent topic modeling on a *single-language corpus*.
 
+2. **Tokenization**  
+   - Texts were split into individual tokens (words), removing punctuation and special characters.
 
-### 4. Topic modeling implementation
--	Algorithm used: Latent Dirichlet Allocation (LDA) from Python’s Gensim library.
+3. **Stop Word Removal**  
+   - A Spanish stop word list was applied to remove common, semantically weak words (e.g., *y, pero, que, de, el*).
 
+4. **Lemmatization / Stemming**  
+   - Tokens were reduced to their **root forms**, allowing morphological variants to be treated as one.  
+   - Example: *innovación, innovar, innovador, innovativa → innova*.
 
-### 5. Analysis and interpretation of results
--	Topic analysis: The keywords for each topic identified by the algorithm were reviewed.
--	Innovation-related topics: The topics containing the root innova among the top 10 words were selected.
--	Semantic interpretation: A qualitative analysis was done on the other words in these topics to see how innovation is contextualized (e.g., product innovation, process innovation, organizational innovation).
--	Visualization: Results will be presented using charts (bar graphs, topic maps, etc.) to make the relationships between topics easier to understand.
+5. **Filtering**  
+   - Extremely rare words (appearing in fewer than 2 documents) and overly frequent words (present in more than 80% of the corpus) were excluded.
+
+6. **Postprocessing**  
+   - Cleaned and lemmatized tokens were further refined by removing **non-informative words**, retaining only *semantically relevant tokens* for modeling.
+
+## 4. Topic Modeling Implementation
+- **Algorithm Used:** Latent Dirichlet Allocation (**LDA**) implemented with **Gensim (Python)**.
+
+- **Parameters:**  
+  - Number of topics: **6** (chosen empirically based on coherence score)  
+  - Hyperparameters `alpha` and `eta`: set to *auto* for adaptive optimization  
+  - Training: 50 passes with a fixed random state for reproducibility
+
+- **Corpus Representation:**  
+  - Each document tokenized and converted into a **bag-of-words vector**  
+  - Rare (<2 documents) and overly frequent (>80% corpus) words were filtered out
+
+- **Model Output:**  
+  - Topics with **representative keywords and weights**  
+  - Document-topic distributions and **dominant topic** per document  
+  - **Coherence score** for evaluating topic quality
+
+## 5. Analysis and Interpretation of Results
+- **Topic Review:** Top keywords for each topic were examined for thematic coherence.  
+- **Innovation-Focused Topics:** Topics containing the root *innova* among the top 15–20 words were selected.  
+- **Semantic Interpretation:** Qualitative analysis was conducted to understand how innovation is contextualized.  
+- **Visualization:** Results were visualized with **bar charts, topic maps, and co-occurrence graphs** to highlight relationships between topics.
+
 
 
 ## Drive link (for documents and illustrations):
